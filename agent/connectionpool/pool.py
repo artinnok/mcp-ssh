@@ -1,7 +1,6 @@
 import logging
 import threading
 import time
-import subprocess
 from .connection import Connection
 from .connection import ConnectionState
 
@@ -27,21 +26,21 @@ class ConnectionPool:
             self.connections.append(connection)
 
     def gather_os_info(self, connection):
-        """Gather OS info for a specific connection."""
+        """Gather OS info from the remote host over SSH."""
         with self.lock:
+            if connection.get_state() != ConnectionState.OPEN:
+                return
             try:
-                result = subprocess.run(
-                    ["scripts/os_info.sh"],
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=True
-                )
-                if result.stdout:
+                result = connection.execute("uname -srm")
+                if result.exit_code == 0 and result.stdout.strip():
                     self.os_info_cache[connection.name] = result.stdout.strip()
                 else:
-                    logging.error(f"❌ No output received for OS info on {connection.name}.")
-            except subprocess.CalledProcessError as e:
-                logging.error(f"❌ Failed to gather OS info for {connection.name}: {e}", exc_info=True)
+                    logging.warning(
+                        f"⚠️ Failed to gather OS info on {connection.name} "
+                        f"(exit={result.exit_code}, stderr={result.stderr.strip()})"
+                    )
+            except Exception as e:
+                logging.error(f"❌ Failed to gather OS info for {connection.name}: {e}")
 
     def start(self):
         if self._started:
@@ -108,11 +107,12 @@ class ConnectionPool:
         with self.lock:
             pool_state = []
             for connection in self.connections:
+                conn_state = connection.get_state()
                 state = {
                     "name": connection.name,
-                    "is_running": connection.is_running(),
+                    "is_running": conn_state == ConnectionState.OPEN,
                     "os_info": self.os_info_cache.get(connection.name, "No OS info cached"),
-                    "connection_state": connection.get_connection_state()
+                    "connection_state": conn_state.value,
                 }
                 pool_state.append(state)
             return pool_state
@@ -122,7 +122,7 @@ class ConnectionPool:
             for connection in self.connections:
                 if connection.name == connection_name:
                     try:
-                        return connection.execute_command(command)
+                        return connection.execute(command)
                     except Exception as e:
                         logging.error(f"❌ Failed to execute command on {connection_name}: {e}")
                         return None
