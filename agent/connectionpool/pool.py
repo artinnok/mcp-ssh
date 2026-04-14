@@ -22,18 +22,8 @@ class ConnectionPool:
         self._timer = None
         self._started = False
 
-        class ConfigObject:
-            def __init__(self, config):
-                self.name = config["name"]
-                self.user = config["user"]
-                self.id_file = config["id_file"]
-                self.mode = config["mode"]
-                self.port = config["port"]
-                self.host = config["host"]
-
         for config in connection_configs:
-            config_obj = ConfigObject(config)
-            connection = Connection(config_obj)
+            connection = Connection(config)
             self.connections.append(connection)
 
     def gather_os_info(self, connection):
