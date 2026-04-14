@@ -9,11 +9,14 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     openssh-server \
     libffi-dev libssl-dev \
-    python3-pip \
+    python3 python3-venv \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --break-system-packages mcp[cli] mcpo pytest paramiko
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip install --no-cache-dir mcp[cli] mcpo pytest paramiko
 
 # Configure SSH daemon during build
 #RUN mkdir -p /etc/ssh && \
