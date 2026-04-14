@@ -1,54 +1,22 @@
-FROM ubuntu:24.04
+FROM python:3.12-slim
 
-# fundamental configuration
-ENV SSH_LISTEN_PORT=22
-ENV MCPO_PORT=8000
+ENV MCP_PORT=8000 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Install required packages
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    openssh-server \
-    libffi-dev libssl-dev \
-    python3 python3-venv \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install "mcp[cli]" paramiko
 
-RUN pip install --no-cache-dir mcp[cli] mcpo pytest paramiko
-
-# Configure SSH daemon during build
-#RUN mkdir -p /etc/ssh && \
-#    echo "Port ${SSH_LISTEN_PORT}" > /etc/ssh/sshd_config && \
-#    echo "PermitRootLogin prohibit-password" >> /etc/ssh/sshd_config && \
-#    echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
-#    echo "PermitEmptyPasswords no" >> /etc/ssh/sshd_config && \
-#    echo "ChallengeResponseAuthentication no" >> /etc/ssh/sshd_config && \
-#    echo "UsePAM no" >> /etc/ssh/sshd_config && \
-#    echo "PermitTTY no" >> /etc/ssh/sshd_config && \
-#    echo "ForceCommand echo 'This connection is for tunneling only. No command execution available.'" >> /etc/ssh/sshd_config && \
-#    echo "GatewayPorts yes" >> /etc/ssh/sshd_config && \
-#    echo "AllowTcpForwarding yes" >> /etc/ssh/sshd_config && \
-#    echo "PermitOpen any" >> /etc/ssh/sshd_config && \
-#    echo "AuthorizedKeysFile /etc/ssh/authorized_keys" >> /etc/ssh/sshd_config
-
-# environment setup
-EXPOSE ${MCPO_PORT}
-EXPOSE ${SSH_LISTEN_PORT}
-
-# startup script
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# application code
 COPY app.py /app/app.py
 COPY agent /app/agent
-
-# helper scripts
 COPY scripts /app/scripts
 RUN chmod +x /app/scripts/*.sh
 
-# Default entrypoint
-WORKDIR /app
+EXPOSE ${MCP_PORT}
 ENTRYPOINT ["/app/entrypoint.sh"]

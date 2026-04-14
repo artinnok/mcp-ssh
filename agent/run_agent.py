@@ -37,7 +37,8 @@ def run_agent(config_path="connections.json"):
 
     # Start MCP loop (blocking)
     from agent import mcp_handlers
-    mcp = FastMCP(name="mcp-ssh-gateway")
+    port = int(os.environ.get("MCP_PORT", "8000"))
+    mcp = FastMCP(name="mcp-ssh-gateway", host="0.0.0.0", port=port)
     mcp_handlers.register_tools(mcp)
-    logging.info("Agent registered all handlers. MCP loop initiated.")
-    mcp.run(transport="stdio")
+    logging.info(f"Agent registered all handlers. MCP streamable-http listening on 0.0.0.0:{port}/mcp")
+    mcp.run(transport="streamable-http")
